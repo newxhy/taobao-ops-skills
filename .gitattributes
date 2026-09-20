@@ -1,0 +1,24 @@
+# 统一换行符 —— 防止 Windows 上 clone 出来的 .sh / .py 带回车导致执行失败
+* text=auto eol=lf
+
+# 明确按 LF 处理
+*.md      text eol=lf
+*.sh      text eol=lf
+*.py      text eol=lf
+*.html    text eol=lf
+*.json    text eol=lf
+*.css     text eol=lf
+*.js      text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+*.txt     text eol=lf
+LICENSE   text eol=lf
+
+# 二进制
+*.zip     binary
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.webp    binary
+*.ico     binary

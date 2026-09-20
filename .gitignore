@@ -1,0 +1,25 @@
+# ---- 运行产物 ----
+dist/
+*.zip
+__pycache__/
+*.pyc
+*.pyo
+
+# ---- 本地备份 / 中间文件 ----
+*.bak
+*_bak
+*_bak_*
+*.crlf_bak*
+*.presanitize_bak*
+.backup/
+
+# ---- 编辑器 / 系统 ----
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- 本地敏感词表（只在本机保留，不要提交）----
+sensitive-words.txt
+.sensitive-words.txt

@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<!--
+  ═══════════════════════════════════════════════════════════════════════════
+  单品运营报表模板  ·  taobao-item-ops-report / assets/item_report_template.html
+  ═══════════════════════════════════════════════════════════════════════════
+
+  【使用方式】
+    python scripts/gen_report.py <数据.json> <输出.html>
+    —— 脚本会把所有 {{...}} 替换成实际值；缺失的写「未取到」。
+    —— 若某个 <tr> 内的占位符"全部缺失"，该行会被自动整行删除（用于裁剪空行）。
+
+  【铁律】
+    1. 抓不到的值一律写「未取到」，**禁止估算、禁止留空**。
+    2. 取不到的段落**保留标题**（读者要知道这里本该有什么），内容写「未取到」。
+    3. 颜色约定： class="up" = 红（数值上升）／ class="down" = 绿（数值下降）／ class="flat" = 灰
+       ⚠️ 跳失率、退款率的「上升」是**变差**，单元格内必须额外加文字标注。
+    4. 总纲第 ⓪ 条：**每条变化都要配一条引导**（问句形态），见第十二段。
+       —— 没有引导清单的报表 = 失败的报表。
+
+  【段落索引】
+    一 一句话结论   二 核心指标卡   三 周期对比总览   四 逐日趋势与拐点
+    五 流量结构     六 效率×规模     七 转化漏斗       八 价格与优惠位
+    九 推广表现     十 人群与词      十一 商品健康     十二 归因闸+引导清单 ⭐
+    十三 异常告警   十四 变化点与风险机会   十五 诚实边界
+
+  【占位符索引】
+    · 头部：{{商品名}} {{商品ID}} {{店铺名}} {{生成时间}} {{类目}} {{链接}}
+    · 周期：{{窗口说明}} {{昨日日期}} {{上周区间}} {{前一周区间}} {{近7天区间}} {{前7日区间}}
+    · 结论：{{结论1}}..{{结论5}}
+    · 指标卡：{{卡N标签}} {{卡N值}} {{卡N副}}（N=1..8）
+    · 总览表：{{总览N指标}} {{总览N昨日}} {{总览N上周}} {{总览N上周环比}} {{总览N上周方向}}
+              {{总览N近7天}} {{总览N近7天环比}} {{总览N近7天方向}} （N=1..18）
+    · 逐日表：{{日期N}} {{展现N}} {{展现N环比}} {{展现N方向}} {{点击N}} {{花费N}} {{成交N}} {{加购N}}（N=1..21）
+              {{周环比总览}} {{二维判读}} {{拐点日期}} {{拐点方向}} {{拐点证据}} {{趋势结论}} {{归因未回补披露}}
+    · 渠道表：{{渠道N名}} {{渠道N访客}} {{渠道N占比}} {{渠道N转化}} {{渠道N倍数}} {{渠道N标签}}（N=1..10）
+              {{渠道判读}}
+    · 象限：{{象限N名}} {{象限N规模}} {{象限N效率}} {{象限N定位}} {{象限N动作}}（N=1..6） {{二维结论}}
+    · 漏斗：{{漏斗访客}} {{漏斗加购}} {{漏斗成交}} {{加购率}} {{加购率环比}} {{兑现率}} {{兑现率序列}} {{漏斗判读}}
+    · 价格：{{券档N门槛}} {{券档N旧}} {{券档N新}} {{券档N变化}}（N=1..8） {{券时间线}} {{券判读}} {{券市场位}}
+    · 推广：{{全站花费}} {{全站点击}} {{全站ROI}} {{全站ROI方向}} {{关键词花费}} {{关键词点击}} {{关键词ROI}} {{关键词ROI方向}}
+            {{直达花费}} {{直达点击}} {{推广合计花费}} {{推广合计点击}} {{推广合计ROI}} {{广告成交占比}}
+            漏水词： {{漏水N}} {{漏水N点击}} {{漏水N花费}} {{漏水N判读}}（N=1..8） {{推广判读}}
+    · 人群：{{性别女}} {{性别男}} {{年龄分布}} {{城市Top}} {{人群判断}}
+            该投词： {{该投N词}} {{该投N理由}}（N=1..5） ／ 该否词： {{该否N词}} {{该否N理由}}（N=1..5）
+    · 健康：{{sku状态}} {{断码断色}} {{评价总数}} {{差评数}} {{差评摘要}} {{改动痕迹}} {{健康判读}}
+    · 归因闸：{{闸N名}} {{闸N状态}} {{闸N结论}}（N=0..6） ／ {{闸总结}}
+    · 已自查：{{已自查N}}（N=1..8）／ 待确认：{{清单N事项}} {{清单N形状}} {{清单N问谁}}（N=1..8）
+    · 告警：{{告警N级别}} {{告警N色}} {{告警N指标}} {{告警N说明}}（N=1..12） {{反向校验}}
+    · 变化点：{{变化N}} {{引导N}}（N=1..6）／ 风险 {{风险N}}（N=1..3）／ 机会 {{机会N}}（N=1..3）
+             盯数 {{盯N指标}} {{盯N阈值}} {{盯N动作}}（N=1..3）
+    · 边界：{{边界N}}（N=1..8）
+  ═══════════════════════════════════════════════════════════════════════════
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{商品名}} · 单品运营报表 {{昨日日期}}</title>
+<style>
+  :root{
+    --bg:#f4f6f9; --card:#ffffff; --line:#e3e8ef; --txt:#1f2937; --sub:#6b7280;
+    --up:#d93025; --down:#1a7f37; --flat:#6b7280; --accent:#2b6cb0;
+    --warn:#b45309; --warnbg:#fff7ed; --okbg:#f0fdf4;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+       font-family:-apple-system,"Segoe UI","Microsoft YaHei",Roboto,sans-serif;font-size:14px;line-height:1.62}
+  .wrap{max-width:1120px;margin:0 auto;padding:28px 20px 60px}
+  h1{font-size:24px;margin:0 0 6px}
+  h2{font-size:17px;margin:36px 0 12px;padding-left:10px;border-left:4px solid var(--accent)}
+  h3{font-size:14.5px;margin:0 0 8px}
+  .meta{color:var(--sub);font-size:12.5px;margin-bottom:2px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:14px}
+  .grid{display:grid;gap:12px}
+  .kpi{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .kpi .item{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .kpi .label{color:var(--sub);font-size:12px}
+  .kpi .val{font-size:20px;font-weight:700;margin-top:2px;letter-spacing:.2px}
+  .up{color:var(--up)} .down{color:var(--down)} .flat{color:var(--flat)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+  th:first-child,td:first-child{text-align:left;white-space:normal}
+  thead th{background:#f8fafc;color:var(--sub);font-weight:600;position:sticky;top:0}
+  tbody tr:hover{background:#fafcff}
+  .tldr li{margin:7px 0}
+  .kbd{background:#eef2f7;border-radius:4px;padding:1px 6px;font-size:12px;color:#334155}
+  .warn{background:var(--warnbg);border:1px solid #fed7aa;border-radius:10px;padding:14px 16px;margin-bottom:12px}
+  .warn h3{color:var(--warn)}
+  .ok{background:var(--okbg);border:1px solid #bbf7d0;border-radius:10px;padding:14px 16px;margin-bottom:12px}
+  .ok h3{color:#15803d}
+  .lvl-hi{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px 16px;margin-bottom:12px}
+  .small{color:var(--sub);font-size:12px}
+  .foot{color:var(--sub);font-size:12px;margin-top:34px;border-top:1px solid var(--line);padding-top:12px}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  /* 漏斗 */
+  .funnel{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap}
+  .funnel .step{flex:1;min-width:140px;background:#fff;border:1px solid var(--line);
+                border-radius:10px;padding:12px 14px;text-align:center}
+  .funnel .step .n{font-size:22px;font-weight:700}
+  .funnel .step .t{color:var(--sub);font-size:12px}
+  /* 券时间线 */
+  .tl{display:flex;flex-direction:column;gap:5px;margin-top:6px}
+  .tl .tr{display:grid;grid-template-columns:132px 1fr 130px;gap:10px;align-items:center;font-size:12.5px}
+  .bar{height:18px;border-radius:4px;background:#e5e7eb}
+  .bar.on{background:var(--accent)}
+  .bar.off{background:#fecaca}
+  /* 标签 */
+  .tag{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11.5px;white-space:nowrap}
+  .tag-active{background:#e0f2fe;color:#075985}
+  .tag-passive{background:#f3e8ff;color:#6b21a8}
+  .lvl0{color:#991b1b;font-weight:700}
+  .lvl1{color:#b91c1c;font-weight:600}
+  .lvl2{color:#b45309;font-weight:600}
+  .lvl3{color:#6b7280}
+  @media(max-width:820px){.kpi{grid-template-columns:repeat(2,1fr)}.row{grid-template-columns:1fr}
+    .funnel .step{min-width:100%}.tl .tr{grid-template-columns:100px 1fr 90px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>{{商品名}} · 单品运营报表</h1>
+  <div class="meta">商品 ID：{{商品ID}} ｜ 店铺：{{店铺名}} ｜ 类目：{{类目}} ｜ 生成时间：{{生成时间}}</div>
+  <div class="meta"><b>口径说明</b>：{{窗口说明}}</div>
+
+  <h2>一、一句话结论</h2>
+  <div class="card tldr">
+    <ul style="margin:0;padding-left:20px">
+      <li>{{结论1}}</li>
+      <li>{{结论2}}</li>
+      <li>{{结论3}}</li>
+      <li>{{结论4}}</li>
+      <li>{{结论5}}</li>
+    </ul>
+  </div>
+
+  <h2>二、核心指标卡（三周期并排）</h2>
+  <div class="grid kpi">
+    <div class="item"><div class="label">{{卡1标签}}</div><div class="val">{{卡1值}}</div><div class="small">{{卡1副}}</div></div>
+    <div class="item"><div class="label">{{卡2标签}}</div><div class="val">{{卡2值}}</div><div class="small">{{卡2副}}</div></div>
+    <div class="item"><div class="label">{{卡3标签}}</div><div class="val">{{卡3值}}</div><div class="small">{{卡3副}}</div></div>
+    <div class="item"><div class="label">{{卡4标签}}</div><div class="val">{{卡4值}}</div><div class="small">{{卡4副}}</div></div>
+    <div class="item"><div class="label">{{卡5标签}}</div><div class="val">{{卡5值}}</div><div class="small">{{卡5副}}</div></div>
+    <div class="item"><div class="label">{{卡6标签}}</div><div class="val">{{卡6值}}</div><div class="small">{{卡6副}}</div></div>
+    <div class="item"><div class="label">{{卡7标签}}</div><div class="val">{{卡7值}}</div><div class="small">{{卡7副}}</div></div>
+    <div class="item"><div class="label">{{卡8标签}}</div><div class="val">{{卡8值}}</div><div class="small">{{卡8副}}</div></div>
+  </div>
+
+  <h2>三、周期对比总览</h2>
+  <div class="card" style="padding:0;overflow:hidden">
+    <table>
+      <thead><tr>
+        <th>指标</th>
+        <th>昨日 {{昨日日期}}</th>
+        <th>上周 {{上周区间}}</th>
+        <th>环比前一周</th>
+        <th>近7天 {{近7天区间}}</th>
+        <th>较前7日</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>{{总览1指标}}</td><td>{{总览1昨日}}</td><td>{{总览1上周}}</td><td class="{{总览1上周方向}}">{{总览1上周环比}}</td><td>{{总览1近7天}}</td><td class="{{总览1近7天方向}}">{{总览1近7天环比}}</td></tr>
+        <tr><td>{{总览2指标}}</td><td>{{总览2昨日}}</td><td>{{总览2上周}}</td><td class="{{总览2上周方向}}">{{总览2上周环比}}</td><td>{{总览2近7天}}</td><td class="{{总览2近7天方向}}">{{总览2近7天环比}}</td></tr>
+        <tr><td>{{总览3指标}}</td><td>{{总览3昨日}}</td><td>{{总览3上周}}</td><td class="{{总览3上周方向}}">{{总览3上周环比}}</td><td>{{总览3近7天}}</td><td class="{{总览3近7天方向}}">{{总览3近7天环比}}</td></tr>
+        <tr><td>{{总览4指标}}</td><td>{{总览4昨日}}</td><td>{{总览4上周}}</td><td class="{{总览4上周方向}}">{{总览4上周环比}}</td><td>{{总览4近7天}}</td><td class="{{总览4近7天方向}}">{{总览4近7天环比}}</td></tr>
+        <tr><td>{{总览5指标}}</td><td>{{总览5昨日}}</td><td>{{总览5上周}}</td><td class="{{总览5上周方向}}">{{总览5上周环比}}</td><td>{{总览5近7天}}</td><td class="{{总览5近7天方向}}">{{总览5近7天环比}}</td></tr>
+        <tr><td>{{总览6指标}}</td><td>{{总览6昨日}}</td><td>{{总览6上周}}</td><td class="{{总览6上周方向}}">{{总览6上周环比}}</td><td>{{总览6近7天}}</td><td class="{{总览6近7天方向}}">{{总览6近7天环比}}</td></tr>
+        <tr><td>{{总览7指标}}</td><td>{{总览7昨日}}</td><td>{{总览7上周}}</td><td class="{{总览7上周方向}}">{{总览7上周环比}}</td><td>{{总览7近7天}}</td><td class="{{总览7近7天方向}}">{{总览7近7天环比}}</td></tr>
+        <tr><td>{{总览8指标}}</td><td>{{总览8昨日}}</td><td>{{总览8上周}}</td><td class="{{总览8上周方向}}">{{总览8上周环比}}</td><td>{{总览8近7天}}</td><td class="{{总览8近7天方向}}">{{总览8近7天环比}}</td></tr>
+        <tr><td>{{总览9指标}}</td><td>{{总览9昨日}}</td><td>{{总览9上周}}</td><td class="{{总览9上周方向}}">{{总览9上周环比}}</td><td>{{总览9近7天}}</td><td class="{{总览9近7天方向}}">{{总览9近7天环比}}</td></tr>
+        <tr><td>{{总览10指标}}</td><td>{{总览10昨日}}</td><td>{{总览10上周}}</td><td class="{{总览10上周方向}}">{{总览10上周环比}}</td><td>{{总览10近7天}}</td><td class="{{总览10近7天方向}}">{{总览10近7天环比}}</td></tr>
+        <tr><td>{{总览11指标}}</td><td>{{总览11昨日}}</td><td>{{总览11上周}}</td><td class="{{总览11上周方向}}">{{总览11上周环比}}</td><td>{{总览11近7天}}</td><td class="{{总览11近7天方向}}">{{总览11近7天环比}}</td></tr>
+        <tr><td>{{总览12指标}}</td><td>{{总览12昨日}}</td><td>{{总览12上周}}</td><td class="{{总览12上周方向}}">{{总览12上周环比}}</td><td>{{总览12近7天}}</td><td class="{{总览12近7天方向}}">{{总览12近7天环比}}</td></tr>
+        <tr><td>{{总览13指标}}</td><td>{{总览13昨日}}</td><td>{{总览13上周}}</td><td class="{{总览13上周方向}}">{{总览13上周环比}}</td><td>{{总览13近7天}}</td><td class="{{总览13近7天方向}}">{{总览13近7天环比}}</td></tr>
+        <tr><td>{{总览14指标}}</td><td>{{总览14昨日}}</td><td>{{总览14上周}}</td><td class="{{总览14上周方向}}">{{总览14上周环比}}</td><td>{{总览14近7天}}</td><td class="{{总览14近7天方向}}">{{总览14近7天环比}}</td></tr>
+        <tr><td>{{总览15指标}}</td><td>{{总览15昨日}}</td><td>{{总览15上周}}</td><td class="{{总览15上周方向}}">{{总览15上周环比}}</td><td>{{总览15近7天}}</td><td class="{{总览15近7天方向}}">{{总览15近7天环比}}</td></tr>
+        <tr><td>{{总览16指标}}</td><td>{{总览16昨日}}</td><td>{{总览16上周}}</td><td class="{{总览16上周方向}}">{{总览16上周环比}}</td><td>{{总览16近7天}}</td><td class="{{总览16近7天方向}}">{{总览16近7天环比}}</td></tr>
+        <tr><td>{{总览17指标}}</td><td>{{总览17昨日}}</td><td>{{总览17上周}}</td><td class="{{总览17上周方向}}">{{总览17上周环比}}</td><td>{{总览17近7天}}</td><td class="{{总览17近7天方向}}">{{总览17近7天环比}}</td></tr>
+        <tr><td>{{总览18指标}}</td><td>{{总览18昨日}}</td><td>{{总览18上周}}</td><td class="{{总览18上周方向}}">{{总览18上周环比}}</td><td>{{总览18近7天}}</td><td class="{{总览18近7天方向}}">{{总览18近7天环比}}</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="small" style="margin:-6px 0 0 2px">
+    颜色按后台惯例：<span class="up">红色＝数值上升</span>、<span class="down">绿色＝数值下降</span>；
+    跳失率 / 退款率<b>上升属变差</b>，已在单元格内单独标注。
+    ⚠️ <b>总量指标均为日均值</b>（禁止拿 7 天总量比 30 天总量——两窗口重叠，方向会假）。
+  </div>
+
+  <h2>四、★ 逐日趋势与拐点（分天粒度）</h2>
+  <div class="card" style="padding:0;overflow:hidden">
+    <table>
+      <thead><tr><th>日期</th><th>展现</th><th>环比</th><th>点击</th><th>花费</th><th>成交</th><th>加购</th></tr></thead>
+      <tbody>
+        <tr><td>{{日期1}}</td><td>{{展现1}}</td><td class="{{展现1方向}}">{{展现1环比}}</td><td>{{点击1}}</td><td>{{花费1}}</td><td>{{成交1}}</td><td>{{加购1}}</td></tr>
+        <tr><td>{{日期2}}</td><td>{{展现2}}</td><td class="{{展现2方向}}">{{展现2环比}}</td><td>{{点击2}}</td><td>{{花费2}}</td><td>{{成交2}}</td><td>{{加购2}}</td></tr>
+        <tr><td>{{日期3}}</td><td>{{展现3}}</td><td class="{{展现3方向}}">{{展现3环比}}</td><td>{{点击3}}</td><td>{{花费3}}</td><td>{{成交3}}</td><td>{{加购3}}</td></tr>
+        <tr><td>{{日期4}}</td><td>{{展现4}}</td><td class="{{展现4方向}}">{{展现4环比}}</td><td>{{点击4}}</td><td>{{花费4}}</td><td>{{成交4}}</td><td>{{加购4}}</td></tr>
+        <tr><td>{{日期5}}</td><td>{{展现5}}</td><td class="{{展现5方向}}">{{展现5环比}}</td><td>{{点击5}}</td><td>{{花费5}}</td><td>{{成交5}}</td><td>{{加购5}}</td></tr>
+        <tr><td>{{日期6}}</td><td>{{展现6}}</td><td class="{{展现6方向}}">{{展现6环比}}</td><td>{{点击6}}</td><td>{{花费6}}</td><td>{{成交6}}</td><td>{{加购6}}</td></tr>
+        <tr><td>{{日期7}}</td><td>{{展现7}}</td><td class="{{展现7方向}}">{{展现7环比}}</td><td>{{点击7}}</td><td>{{花费7}}</td><td>{{成交7}}</td><td>{{加购7}}</td></tr>
+        <tr><td>{{日期8}}</td><td>{{展现8}}</td><td class="{{展现8方向}}">{{展现8环比}}</td><td>{{点击8}}</td><td>{{花费8}}</td><td>{{成交8}}</td><td>{{加购8}}</td></tr>
+        <tr><td>{{日期9}}</td><td>{{展现9}}</td><td class="{{展现9方向}}">{{展现9环比}}</td><td>{{点击9}}</td><td>{{花费9}}</td><td>{{成交9}}</td><td>{{加购9}}</td></tr>
+        <tr><td>{{日期10}}</td><td>{{展现10}}</td><td class="{{展现10方向}}">{{展现10环比}}</td><td>{{点击10}}</td><td>{{花费10}}</td><td>{{成交10}}</td><td>{{加购10}}</td></tr>
+        <tr><td>{{日期11}}</td><td>{{展现11}}</td><td class="{{展现11方向}}">{{展现11环比}}</td><td>{{点击11}}</td><td>{{花费11}}</td><td>{{成交11}}</td><td>{{加购11}}</td></tr>
+        <tr><td>{{日期12}}</td><td>{{展现12}}</td><td class="{{展现12方向}}">{{展现12环比}}</td><td>{{点击12}}</td><td>{{花费12}}</td><td>{{成交12}}</td><td>{{加购12}}</td></tr>
+        <tr><td>{{日期13}}</td><td>{{展现13}}</td><td class="{{展现13方向}}">{{展现13环比}}</td><td>{{点击13}}</td><td>{{花费13}}</td><td>{{成交13}}</td><td>{{加购13}}</td></tr>
+        <tr><td>{{日期14}}</td><td>{{展现14}}</td><td class="{{展现14方向}}">{{展现14环比}}</td><td>{{点击14}}</td><td>{{花费14}}</td><td>{{成交14}}</td><td>{{加购14}}</td></tr>
+        <tr><td>{{日期15}}</td><td>{{展现15}}</td><td class="{{展现15方向}}">{{展现15环比}}</td><td>{{点击15}}</td><td>{{花费15}}</td><td>{{成交15}}</td><td>{{加购15}}</td></tr>
+        <tr><td>{{日期16}}</td><td>{{展现16}}</td><td class="{{展现16方向}}">{{展现16环比}}</td><td>{{点击16}}</td><td>{{花费16}}</td><td>{{成交16}}</td><td>{{加购16}}</td></tr>
+        <tr><td>{{日期17}}</td><td>{{展现17}}</td><td class="{{展现17方向}}">{{展现17环比}}</td><td>{{点击17}}</td><td>{{花费17}}</td><td>{{成交17}}</td><td>{{加购17}}</td></tr>
+        <tr><td>{{日期18}}</td><td>{{展现18}}</td><td class="{{展现18方向}}">{{展现18环比}}</td><td>{{点击18}}</td><td>{{花费18}}</td><td>{{成交18}}</td><td>{{加购18}}</td></tr>
+        <tr><td>{{日期19}}</td><td>{{展现19}}</td><td class="{{展现19方向}}">{{展现19环比}}</td><td>{{点击19}}</td><td>{{花费19}}</td><td>{{成交19}}</td><td>{{加购19}}</td></tr>
+        <tr><td>{{日期20}}</td><td>{{展现20}}</td><td class="{{展现20方向}}">{{展现20环比}}</td><td>{{点击20}}</td><td>{{花费20}}</td><td>{{成交20}}</td><td>{{加购20}}</td></tr>
+        <tr><td>{{日期21}}</td><td>{{展现21}}</td><td class="{{展现21方向}}">{{展现21环比}}</td><td>{{点击21}}</td><td>{{花费21}}</td><td>{{成交21}}</td><td>{{加购21}}</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="small" style="margin:-6px 0 0 2px">
+    来源：万相台「报表」→ <b>时间粒度＝分天</b> ／ <b>周期对比＝周环比</b>。
+    逐日表每格 = 本期值 + 涨跌% + 对比期值（环比列直接取平台算好的值，不需自行相减）。
+  </div>
+  <div class="card">
+    <h3>周环比总览</h3>
+    <div class="small">{{周环比总览}}</div>
+    <div class="small" style="margin-top:8px"><b>二维判读（规模 × 效率）</b>：{{二维判读}}</div>
+  </div>
+  <div class="warn">
+    <h3>⚠️ 口径成熟度披露（必读）</h3>
+    {{归因未回补披露}}
+  </div>
+  <div class="warn">
+    <h3>拐点</h3>
+    {{拐点日期}} 起 <b>{{拐点方向}}</b> ｜ 证据：{{拐点证据}}<br>
+    <b>趋势结论</b>：{{趋势结论}}
+  </div>
+
+  <h2>五、流量结构（渠道构成）</h2>
+  <div class="card" style="padding:0;overflow:hidden">
+    <table>
+      <thead><tr><th>渠道来源</th><th>访客</th><th>占比</th><th>转化率</th><th>效率倍数</th><th>标签</th></tr></thead>
+      <tbody>
+        <tr><td>{{渠道1名}}</td><td>{{渠道1访客}}</td><td>{{渠道1占比}}</td><td>{{渠道1转化}}</td><td>{{渠道1倍数}}</td><td>{{渠道1标签}}</td></tr>
+        <tr><td>{{渠道2名}}</td><td>{{渠道2访客}}</td><td>{{渠道2占比}}</td><td>{{渠道2转化}}</td><td>{{渠道2倍数}}</td><td>{{渠道2标签}}</td></tr>
+        <tr><td>{{渠道3名}}</td><td>{{渠道3访客}}</td><td>{{渠道3占比}}</td><td>{{渠道3转化}}</td><td>{{渠道3倍数}}</td><td>{{渠道3标签}}</td></tr>
+        <tr><td>{{渠道4名}}</td><td>{{渠道4访客}}</td><td>{{渠道4占比}}</td><td>{{渠道4转化}}</td><td>{{渠道4倍数}}</td><td>{{渠道4标签}}</td></tr>
+        <tr><td>{{渠道5名}}</td><td>{{渠道5访客}}</td><td>{{渠道5占比}}</td><td>{{渠道5转化}}</td><td>{{渠道5倍数}}</td><td>{{渠道5标签}}</td></tr>
+        <tr><td>{{渠道6名}}</td><td>{{渠道6访客}}</td><td>{{渠道6占比}}</td><td>{{渠道6转化}}</td><td>{{渠道6倍数}}</td><td>{{渠道6标签}}</td></tr>
+        <tr><td>{{渠道7名}}</td><td>{{渠道7访客}}</td><td>{{渠道7占比}}</td><td>{{渠道7转化}}</td><td>{{渠道7倍数}}</td><td>{{渠道7标签}}</td></tr>
+        <tr><td>{{渠道8名}}</td><td>{{渠道8访客}}</td><td>{{渠道8占比}}</td><td>{{渠道8转化}}</td><td>{{渠道8倍数}}</td><td>{{渠道8标签}}</td></tr>
+        <tr><td>{{渠道9名}}</td><td>{{渠道9访客}}</td><td>{{渠道9占比}}</td><td>{{渠道9转化}}</td><td>{{渠道9倍数}}</td><td>{{渠道9标签}}</td></tr>
+        <tr><td>{{渠道10名}}</td><td>{{渠道10访客}}</td><td>{{渠道10占比}}</td><td>{{渠道10转化}}</td><td>{{渠道10倍数}}</td><td>{{渠道10标签}}</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card small">
+    <b>标签约定</b>：<span class="tag tag-active">主动</span> 搜索 / 购物车 / 我的淘宝 / 店铺 —— 买家<b>带着需求</b>来的，转化天然高 ｜
+    <span class="tag tag-passive">被动</span> 推荐类 —— <b>平台推给他</b>的，转化天然低。<br>
+    <b>判读</b>：{{渠道判读}}
+  </div>
+
+  <h2>六、★ 效率 × 规模二维</h2>
+  <div class="card" style="padding:0;overflow:hidden">
+    <table>
+      <thead><tr><th>渠道 / 单元</th><th>规模</th><th>效率</th><th>象限定位</th><th>建议动作</th></tr></thead>
+      <tbody>
+        <tr><td>{{象限1名}}</td><td>{{象限1规模}}</td><td>{{象限1效率}}</td><td>{{象限1定位}}</td><td>{{象限1动作}}</td></tr>
+        <tr><td>{{象限2名}}</td><td>{{象限2规模}}</td><td>{{象限2效率}}</td><td>{{象限2定位}}</td><td>{{象限2动作}}</td></tr>
+        <tr><td>{{象限3名}}</td><td>{{象限3规模}}</td><td>{{象限3效率}}</td><td>{{象限3定位}}</td><td>{{象限3动作}}</td></tr>
+        <tr><td>{{象限4名}}</td><td>{{象限4规模}}</td><td>{{象限4效率}}</td><td>{{象限4定位}}</td><td>{{象限4动作}}</td></tr>
+        <tr><td>{{象限5名}}</td><td>{{象限5规模}}</td><td>{{象限5效率}}</td><td>{{象限5定位}}</td><td>{{象限5动作}}</td></tr>
+        <tr><td>{{象限6名}}</td><td>{{象限6规模}}</td><td>{{象限6效率}}</td><td>{{象限6定位}}</td><td>{{象限6动作}}</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card small"><b>结论</b>：{{二维结论}}</div>
+
+  <h2>七、转化漏斗与先行指标</h2>
+  <div class="funnel" style="margin-bottom:14px">
+    <div class="step"><div class="t">访客</div><div class="n">{{漏斗访客}}</div></div>
+    <div class="step"><div class="t">加购人数（先行）</div><div class="n">{{漏斗加购}}</div></div>
+    <div class="step"><div class="t">成交（滞后）</div><div class="n">{{漏斗成交}}</div></div>
+  </div>
+  <div class="row">
+    <div class="card">
+      <h3>加购率（先行指标）</h3>
+      <div class="small">加购率 <b>{{加购率}}</b> ｜ 环比 {{加购率环比}}</div>
+    </div>
+    <div class="card">
+      <h3>购物车兑现率（成交 ÷ 加购）</h3>
+      <div class="small">本期 <b>{{兑现率}}</b></div>
+      <div class="small" style="margin-top:6px">序列：{{兑现率序列}}</div>
+    </div>
+  </div>
+  <div class="card small">
+    <b>读法</b>：成交是<b>滞后指标</b>、加购是<b>先行指标</b> —— 高客单品 / 大促蓄水期 / 养词冷启动三个场景
+    <b>必须切到加购率 + 加购增速</b>，用成交判会<b>系统性误杀</b>。
+    兑现率<b>看趋势</b>：涨 = 承接改善；跌 = 比价 / 凑单。<br>
+    <b>判读</b>：{{漏斗判读}}
+  </div>
+
+  <h2>八、价格与优惠位（归因闸零的数据源）</h2>
+  <div class="card" style="padding:0;overflow:hidden">
+    <table>
+      <thead><tr><th>门槛</th><th>上一批</th><th>当前</th><th>变化</th></tr></thead>
+      <tbody>
+        <tr><td>{{券档1门槛}}</td><td>{{券档1旧}}</td><td>{{券档1新}}</td><td>{{券档1变化}}</td></tr>
+        <tr><td>{{券档2门槛}}</td><td>{{券档2旧}}</td><td>{{券档2新}}</td><td>{{券档2变化}}</td></tr>
+        <tr><td>{{券档3门槛}}</td><td>{{券档3旧}}</td><td>{{券档3新}}</td><td>{{券档3变化}}</td></tr>
+        <tr><td>{{券档4门槛}}</td><td>{{券档4旧}}</td><td>{{券档4新}}</td><td>{{券档4变化}}</td></tr>
+        <tr><td>{{券档5门槛}}</td><td>{{券档5旧}}</td><td>{{券档5新}}</td><td>{{券档5变化}}</td></tr>
+        <tr><td>{{券档6门槛}}</td><td>{{券档6旧}}</td><td>{{券档6新}}</td><td>{{券档6变化}}</td></tr>
+        <tr><td>{{券档7门槛}}</td><td>{{券档7旧}}</td><td>{{券档7新}}</td><td>{{券档7变化}}</td></tr>
+        <tr><td>{{券档8门槛}}</td><td>{{券档8旧}}</td><td>{{券档8新}}</td><td>{{券档8变化}}</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card">
+    <h3>券的时间线（看有没有空窗 —— 漏续期指纹）</h3>
+    <div class="tl">{{券时间线}}</div>
+    <div class="small" style="margin-top:8px">{{券判读}}</div>
+  </div>
+  <div class="card"><h3>价格位置</h3><div class="small">{{券市场位}}</div></div>
+
+  <h2>九、推广表现</h2>
+  <div class="card" style="padding:0;overflow:hidden">
+    <table>
+      <thead><tr><th>场景</th><th>花费</th><th>点击</th><th>ROI</th></tr></thead>
+      <tbody>
+        <tr><td>全站推广（货品全站推广）</td><td>{{全站花费}}</td><td>{{全站点击}}</td><td class="{{全站ROI方向}}">{{全站ROI}}</td></tr>
+        <tr><td>关键词推广</td><td>{{关键词花费}}</td><td>{{关键词点击}}</td><td class="{{关键词ROI方向}}">{{关键词ROI}}</td></tr>
+        <tr><td>店铺直达</td><td>{{直达花费}}</td><td>{{直达点击}}</td><td>—</td></tr>
+        <tr><td><b>合计</b></td><td><b>{{推广合计花费}}</b></td><td><b>{{推广合计点击}}</b></td><td><b>{{推广合计ROI}}</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="small" style="margin:-6px 0 0 2px">
+    ⚠️ 三行必须能加总到「合计」：<b>全站推广 + 关键词推广 + 店铺直达 = 账户合计</b>。
+    只列前两行会与合计对不上（差额就是店铺直达）。广告成交占该品 GMV：<b>{{广告成交占比}}</b>。
+  </div>
+  <div class="card" style="padding:0;overflow:hidden;margin-top:12px">
+    <table>
+      <thead><tr><th>漏水词（点击 ≥ 20 且成交 = 0）</th><th>点击</th><th>花费</th><th>判读</th></tr></thead>
+      <tbody>
+        <tr><td>{{漏水1}}</td><td>{{漏水1点击}}</td><td>{{漏水1花费}}</td><td>{{漏水1判读}}</td></tr>
+        <tr><td>{{漏水2}}</td><td>{{漏水2点击}}</td><td>{{漏水2花费}}</td><td>{{漏水2判读}}</td></tr>
+        <tr><td>{{漏水3}}</td><td>{{漏水3点击}}</td><td>{{漏水3花费}}</td><td>{{漏水3判读}}</td></tr>
+        <tr><td>{{漏水4}}</td><td>{{漏水4点击}}</td><td>{{漏水4花费}}</td><td>{{漏水4判读}}</td></tr>
+        <tr><td>{{漏水5}}</td><td>{{漏水5点击}}</td><td>{{漏水5花费}}</td><td>{{漏水5判读}}</td></tr>
+        <tr><td>{{漏水6}}</td><td>{{漏水6点击}}</td><td>{{漏水6花费}}</td><td>{{漏水6判读}}</td></tr>
+        <tr><td>{{漏水7}}</td><td>{{漏水7点击}}</td><td>{{漏水7花费}}</td><td>{{漏水7判读}}</td></tr>
+        <tr><td>{{漏水8}}</td><td>{{漏水8点击}}</td><td>{{漏水8花费}}</td><td>{{漏水8判读}}</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card small"><b>推广判读</b>：{{推广判读}}</div>
+
+  <h2>十、人群与词</h2>
+  <div class="row">
+    <div class="card">
+      <h3>人群画像</h3>
+      <div class="small">女 <b>{{性别女}}</b> ｜ 男 {{性别男}}</div>
+      <div class="small" style="margin-top:6px">{{年龄分布}}</div>
+      <div class="small" style="margin-top:6px">{{城市Top}}</div>
+      <div class="small" style="margin-top:6px">→ {{人群判断}}</div>
+    </div>
+    <div class="card">
+      <h3>词表（精简版）</h3>
+      <div class="small"><b>该投</b></div>
+      <div class="small">{{该投1词}} —— {{该投1理由}}</div>
+      <div class="small">{{该投2词}} —— {{该投2理由}}</div>
+      <div class="small">{{该投3词}} —— {{该投3理由}}</div>
+      <div class="small">{{该投4词}} —— {{该投4理由}}</div>
+      <div class="small">{{该投5词}} —— {{该投5理由}}</div>
+      <div class="small" style="margin-top:8px"><b>该否</b></div>
+      <div class="small">{{该否1词}} —— {{该否1理由}}</div>
+      <div class="small">{{该否2词}} —— {{该否2理由}}</div>
+      <div class="small">{{该否3词}} —— {{该否3理由}}</div>
+      <div class="small">{{该否4词}} —— {{该否4理由}}</div>
+      <div class="small">{{该否5词}} —— {{该否5理由}}</div>
+    </div>
+  </div>
+
+  <h2>十一、商品自身健康</h2>
+  <div class="card">
+    <div class="small"><b>SKU 状态</b>：{{sku状态}}</div>
+    <div class="small" style="margin-top:6px"><b>断码 / 断色 / 断规格</b>：{{断码断色}}</div>
+    <div class="small" style="margin-top:6px"><b>评价</b>：共 {{评价总数}} 条，其中差评 {{差评数}} 条 —— {{差评摘要}}</div>
+    <div class="small" style="margin-top:6px"><b>主图 / 详情 / 标题改动痕迹</b>：{{改动痕迹}}</div>
+    <div class="small" style="margin-top:8px"><b>判读</b>：{{健康判读}}</div>
+  </div>
+
+  <h2>十二、★★ 归因闸结果 & 需人工确认清单</h2>
+  <div class="card" style="padding:0;overflow:hidden">
+    <table>
+      <thead><tr><th>闸</th><th>状态</th><th>结论 / 证据</th></tr></thead>
+      <tbody>
+        <tr><td>{{闸0名}}</td><td>{{闸0状态}}</td><td>{{闸0结论}}</td></tr>
+        <tr><td>{{闸1名}}</td><td>{{闸1状态}}</td><td>{{闸1结论}}</td></tr>
+        <tr><td>{{闸2名}}</td><td>{{闸2状态}}</td><td>{{闸2结论}}</td></tr>
+        <tr><td>{{闸3名}}</td><td>{{闸3状态}}</td><td>{{闸3结论}}</td></tr>
+        <tr><td>{{闸4名}}</td><td>{{闸4状态}}</td><td>{{闸4结论}}</td></tr>
+        <tr><td>{{闸5名}}</td><td>{{闸5状态}}</td><td>{{闸5结论}}</td></tr>
+        <tr><td>{{闸6名}}</td><td>{{闸6状态}}</td><td>{{闸6结论}}</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card small"><b>闸总结</b>：{{闸总结}}</div>
+
+  <div class="ok">
+    <h3>✅ AI 已自查（不用您动手）</h3>
+    <ul style="margin:6px 0 0;padding-left:20px">
+      <li>{{已自查1}}</li>
+      <li>{{已自查2}}</li>
+      <li>{{已自查3}}</li>
+      <li>{{已自查4}}</li>
+      <li>{{已自查5}}</li>
+      <li>{{已自查6}}</li>
+      <li>{{已自查7}}</li>
+      <li>{{已自查8}}</li>
+    </ul>
+  </div>
+
+  <div class="warn">
+    <h3>📋 待确认清单（报表的核心交付物）</h3>
+    <div class="small" style="margin-bottom:8px">
+      以下为<b>候选因素</b>，不是结论。请按优先级确认 —— <b>拿到答案才能定动作</b>。
+    </div>
+    <div class="card" style="padding:0;overflow:hidden;background:#fff">
+      <table>
+        <thead><tr><th>#</th><th>待确认事项（问句）</th><th>现象特征</th><th>去问谁</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>{{清单1事项}}</td><td>{{清单1形状}}</td><td>{{清单1问谁}}</td></tr>
+          <tr><td>2</td><td>{{清单2事项}}</td><td>{{清单2形状}}</td><td>{{清单2问谁}}</td></tr>
+          <tr><td>3</td><td>{{清单3事项}}</td><td>{{清单3形状}}</td><td>{{清单3问谁}}</td></tr>
+          <tr><td>4</td><td>{{清单4事项}}</td><td>{{清单4形状}}</td><td>{{清单4问谁}}</td></tr>
+          <tr><td>5</td><td>{{清单5事项}}</td><td>{{清单5形状}}</td><td>{{清单5问谁}}</td></tr>
+          <tr><td>6</td><td>{{清单6事项}}</td><td>{{清单6形状}}</td><td>{{清单6问谁}}</td></tr>
+          <tr><td>7</td><td>{{清单7事项}}</td><td>{{清单7形状}}</td><td>{{清单7问谁}}</td></tr>
+          <tr><td>8</td><td>{{清单8事项}}</td><td>{{清单8形状}}</td><td>{{清单8问谁}}</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <h2>十三、★ 异常告警（🔴 高危 / 🟡 中危 / ⚪ 观察）</h2>
+  <div class="card" style="padding:0;overflow:hidden">
+    <table>
+      <thead><tr><th>级别</th><th>指标</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td class="{{告警1色}}">{{告警1级别}}</td><td>{{告警1指标}}</td><td>{{告警1说明}}</td></tr>
+        <tr><td class="{{告警2色}}">{{告警2级别}}</td><td>{{告警2指标}}</td><td>{{告警2说明}}</td></tr>
+        <tr><td class="{{告警3色}}">{{告警3级别}}</td><td>{{告警3指标}}</td><td>{{告警3说明}}</td></tr>
+        <tr><td class="{{告警4色}}">{{告警4级别}}</td><td>{{告警4指标}}</td><td>{{告警4说明}}</td></tr>
+        <tr><td class="{{告警5色}}">{{告警5级别}}</td><td>{{告警5指标}}</td><td>{{告警5说明}}</td></tr>
+        <tr><td class="{{告警6色}}">{{告警6级别}}</td><td>{{告警6指标}}</td><td>{{告警6说明}}</td></tr>
+        <tr><td class="{{告警7色}}">{{告警7级别}}</td><td>{{告警7指标}}</td><td>{{告警7说明}}</td></tr>
+        <tr><td class="{{告警8色}}">{{告警8级别}}</td><td>{{告警8指标}}</td><td>{{告警8说明}}</td></tr>
+        <tr><td class="{{告警9色}}">{{告警9级别}}</td><td>{{告警9指标}}</td><td>{{告警9说明}}</td></tr>
+        <tr><td class="{{告警10色}}">{{告警10级别}}</td><td>{{告警10指标}}</td><td>{{告警10说明}}</td></tr>
+        <tr><td class="{{告警11色}}">{{告警11级别}}</td><td>{{告警11指标}}</td><td>{{告警11说明}}</td></tr>
+        <tr><td class="{{告警12色}}">{{告警12级别}}</td><td>{{告警12指标}}</td><td>{{告警12说明}}</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card small"><b>反向校验</b>：{{反向校验}}</div>
+
+  <h2>十四、变化点 & 风险 / 机会 / 盯数</h2>
+  <div class="card" style="padding:0;overflow:hidden">
+    <table>
+      <thead><tr><th>变化点</th><th>对应的引导（该去查什么）</th></tr></thead>
+      <tbody>
+        <tr><td>{{变化1}}</td><td>{{引导1}}</td></tr>
+        <tr><td>{{变化2}}</td><td>{{引导2}}</td></tr>
+        <tr><td>{{变化3}}</td><td>{{引导3}}</td></tr>
+        <tr><td>{{变化4}}</td><td>{{引导4}}</td></tr>
+        <tr><td>{{变化5}}</td><td>{{引导5}}</td></tr>
+        <tr><td>{{变化6}}</td><td>{{引导6}}</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="row" style="margin-top:12px">
+    <div class="card"><h3>🔴 风险</h3>
+      <div class="small">{{风险1}}</div><div class="small">{{风险2}}</div><div class="small">{{风险3}}</div></div>
+    <div class="card"><h3>🟢 机会</h3>
+      <div class="small">{{机会1}}</div><div class="small">{{机会2}}</div><div class="small">{{机会3}}</div></div>
+  </div>
+  <div class="card" style="margin-top:12px;padding:0;overflow:hidden">
+    <table>
+      <thead><tr><th>下阶段盯这 3 个数</th><th>阈值</th><th>越界后做什么</th></tr></thead>
+      <tbody>
+        <tr><td>{{盯1指标}}</td><td>{{盯1阈值}}</td><td>{{盯1动作}}</td></tr>
+        <tr><td>{{盯2指标}}</td><td>{{盯2阈值}}</td><td>{{盯2动作}}</td></tr>
+        <tr><td>{{盯3指标}}</td><td>{{盯3阈值}}</td><td>{{盯3动作}}</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>十五、诚实边界与口径说明</h2>
+  <div class="card">
+    <ul style="margin:0;padding-left:20px">
+      <li>{{边界1}}</li>
+      <li>{{边界2}}</li>
+      <li>{{边界3}}</li>
+      <li>{{边界4}}</li>
+      <li>{{边界5}}</li>
+      <li>{{边界6}}</li>
+      <li>{{边界7}}</li>
+      <li>{{边界8}}</li>
+    </ul>
+  </div>
+
+  <div class="foot">
+    本报告由 taobao-item-ops-report 生成：多周期口径 + 渠道结构 + 归因闸 + 引导清单。<br>
+    <b>定位</b>：本报告只出<b>数据、变化与引导</b>，<b>不给出未经数据验证的原因</b> ——
+    查不到的一律进「待确认清单」。<br>
+    <b>只读声明</b>：报告不含任何写操作；改价、改券、调预算、暂停计划<b>均由人工执行</b>。<br>
+    <b>总纲提醒</b>：每条变化都已配一条引导；若运营看完仍不知下一步查什么，请反馈，本技能据此改进。
+  </div>
+
+</div>
+</body>
+</html>
