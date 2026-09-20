@@ -1,6 +1,6 @@
 ---
 name: taobao-item-ops-report
-version: 1.0.0
+version: 1.1.0
 display_name: 淘宝单品运营报表
 display_name_en: Taobao Single Item Operations Report
 description: |
@@ -20,6 +20,8 @@ description: |
   适用：淘系（淘宝 / 天猫）商家自有店铺的任意在售商品。数据源需本机浏览器已登录对应后台。
 description_zh: 从淘宝/天猫「生意参谋 + 万相台」后台实抓数据，为单个商品生成一份「多周期对比 + 渠道结构 + 归因闸 + 需人工确认清单」的单品运营报表（HTML 长报告）。分析单位是一个商品，回答这个品最近怎么样、哪里变了、下一步该查什么。与店铺维度日报互补，一个看店、一个看品。覆盖昨日核心指标、上周对比前一周、近7天对比前7天、逐日趋势与拐点、流量结构（搜索/推荐/付费/购物车）、效率与规模二维、转化漏斗与先行指标（加购是先行、成交是滞后，含购物车兑现率）、价格与券位、推广表现、人群与关键词、商品健康、归因闸结果、异常告警三级分级、变化点与引导共15个板块。核心原则是报表必须等于发现变化加引导找到原因，每条变化都配一条问句形态的引导（例如上周是否调整过价格或优惠券），并输出候选因素清单与需人工确认清单，绝不写未经验证的原因。数据全部实抓，抓不到即标注未取到，绝不用估算值填空。
 description_en: Pull data directly from the Taobao or Tmall Sycm and Wanxiangtai backends and generate a single-item operations report as an HTML long report, with multi-period comparison, channel structure, attribution gates and a human-confirmation checklist. The analysis unit is one product, answering how this item is doing, what changed and what to check next; it complements the store-level daily report. Fifteen sections cover yesterday metrics, week-over-week, daily trend turning points, traffic structure across search, recommendation, paid and cart, conversion funnel and leading indicators, price and coupon tiers, ad performance, audience and keywords, item health, attribution gate results, tiered alerts and change points with guidance. Core principle, every change must become a concrete question for the operator, and the report ships a candidate-factor list plus a human-confirmation checklist. All figures are scraped live, never estimated.
+license: MIT
+compatibility: Requires Python 3.9+ and browser automation; data is scraped from a logged-in Taobao/Tmall merchant backend.
 agent_created: true
 ---
 

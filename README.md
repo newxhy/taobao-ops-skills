@@ -31,9 +31,9 @@
 
 | 技能 | 维度 | 版本 | 说明 |
 |---|---|---|---|
-| [`taobao-item-ops-report`](skills/taobao-item-ops-report) | **单品** | v1.0.0 | 单个商品的运营长报告：多周期对比 + 渠道结构 + 归因闸 + 需人工确认清单，15 个板块 |
-| [`sycm-ops-daily-report`](skills/sycm-ops-daily-report) | **店铺** | v1.3.0 | 店铺运营日报：店铺/渠道/推广计划三层 + 环比对比 + 变化归因，15 个板块 |
-| [`skill-frontmatter-safeedit`](skills/skill-frontmatter-safeedit) | 工具 | v1.3.0 | 给"写技能的人"用：SKILL.md 安全编辑 + 上传前校验 + 打包复验 + 发布前敏感扫描 |
+| [`taobao-item-ops-report`](skills/taobao-item-ops-report) | **单品** | v1.1.0 | 单个商品的运营长报告：多周期对比 + 渠道结构 + 归因闸 + 需人工确认清单，15 个板块 |
+| [`sycm-ops-daily-report`](skills/sycm-ops-daily-report) | **店铺** | **v1.4.0** | 店铺运营日报：店铺/渠道/推广计划三层 + 环比对比 + 变化归因，15 个板块 |
+| [`skill-frontmatter-safeedit`](skills/skill-frontmatter-safeedit) | 工具 | **v1.4.0** | 给"写技能的人"用：SKILL.md 安全编辑 + 上传前校验 + 打包复验 + 发布前敏感扫描 |
 
 > 前两个是**业务技能**（一个看品、一个看店，互补不重叠）；第三个是**造技能的工具技能**。
 
@@ -120,6 +120,8 @@ taobao-ops-skills/
 ├── README.md
 ├── LICENSE
 ├── .gitignore
+├── .gitattributes
+├── .github/workflows/verify.yml   # 每次 push 自动跑发布前自检
 └── skills/
     ├── taobao-item-ops-report/
     │   ├── SKILL.md                       # 主文档：总纲 / 取数铁律 / 15 段结构 / 归因闸
@@ -161,6 +163,50 @@ python scripts/scan_sensitive.py <技能目录> [<技能目录2> ...]
 
 ---
 
+## 发布与自动化
+
+| 产物 | 位置 | 说明 |
+|---|---|---|
+| **技能包（`.zip`）** | [Releases](../../releases) | 每个技能一个包，**不需要 git 也能下载** |
+| 源码 | `skills/` | 直接拷进你的 skills 目录即可 |
+| 自动检查 | [`.github/workflows/verify.yml`](.github/workflows/verify.yml) | 每次 push / PR 自动跑四项自检 |
+
+### 改动技能后的本地三步（缺一不可）
+
+```bash
+# ① 字段齐全 + 长度 + 版本一致性 + 裸 CR
+python skills/skill-frontmatter-safeedit/scripts/check_frontmatter.py --upload skills/<技能名>
+
+# ② 敏感信息（店铺名 / 邮箱 / 手机号 / 密钥）—— 公开仓库必做
+python skills/skill-frontmatter-safeedit/scripts/scan_sensitive.py skills/<技能名>
+
+# ③ 打包 + 解包复验【包内字节】
+python skills/skill-frontmatter-safeedit/scripts/pack_and_verify.py skills/<技能名>
+```
+
+三者都是 `0 = 通过 / 1 = 有问题` 的退出码，可直接当 CI 门禁。
+
+### 字段：开放标准 vs WorkBuddy 扩展
+
+`SKILL.md` 是 [Agent Skills](https://agentskills.io) 开放标准。本仓库的技能同时带两类字段：
+
+| 字段 | 归属 | 换到 Claude Code / Codex CLI / Cursor |
+|---|---|---|
+| `name` / `description` | ✅ 官方标准 | **照读**，召回能力不丢 |
+| `license` / `compatibility` | ✅ 官方标准（可选） | 照读 |
+| `version` / `display_name` / `description_zh` / `description_en` | ⚠️ **WorkBuddy 扩展** | **静默忽略**（不报错也不生效）|
+
+> **为什么不加官方推荐的 `metadata.version`？**
+> WorkBuddy 平台要求描述字段用「单行 plain scalar」，这意味着它的解析器**可能是逐行提取**而非完整 YAML。
+> 若如此，嵌套的 `  version:` 缩进行会与顶层 `version` 撞车，**直接导致上传「解析失败」**。
+> 而收益极小 —— 各工具实际只读 `name` / `description` 做召回。**不为"正宗"去冒被拒的险。**
+
+⚠️ 官方字段的硬约束（与平台实测取**更严**者）：
+`name` ≤64 且**必须与目录名一致**；`description` ≤1024（平台实测更严：1000）；
+`compatibility` ≤500；`license` 填许可证名。
+
+---
+
 ## English
 
 A set of [Agent Skills](https://agentskills.io) that pull real data from Taobao/Tmall
@@ -185,6 +231,8 @@ Three skills:
 
 Install by copying a skill folder into your agent's skills directory
 (`~/.claude/skills`, `~/.codex/skills`, `~/.cursor/skills`, `~/.workbuddy/skills`, …).
+Prebuilt `.zip` packages are attached to [Releases](../../releases)
+(no git needed), and GitHub Actions runs the same pre-publish checks on every push.
 The methodology, criteria, report structure and Python rendering scripts are fully portable;
 only the data-scraping step is tied to a specific browser-automation backend.
 

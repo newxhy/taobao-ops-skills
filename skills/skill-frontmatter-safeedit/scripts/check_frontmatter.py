@@ -16,6 +16,8 @@
 
 ⚠️ 官方 quick_validate.py 只查 name / description 两条，**永远报 Skill is valid!**
    → 不能拿它当上传前的准绳，必须跑本脚本的 --upload 模式。
+
+退出码: 0 = 全部通过；1 = 有技能未通过（可直接用于 CI 门禁）。
 """
 import io, os, re, sys
 
@@ -40,7 +42,7 @@ def check(raw, upload=False):
     p = os.path.join(raw, 'SKILL.md') if os.path.isdir(raw) else raw
     if not os.path.isfile(p):
         print('✗ 找不到 %s' % p)
-        return
+        return False
 
     d = os.path.dirname(p)
     print('=' * 72)
@@ -48,7 +50,7 @@ def check(raw, upload=False):
     fm, body, err = load_frontmatter(p)
     if err:
         print('  ✗ %s' % err)
-        return
+        return False
 
     ok = True
 
@@ -134,6 +136,9 @@ def check(raw, upload=False):
         ('description',    1000, False, '主描述（召回用）'),
         ('display_name',   30,   False, '中文名'),
         ('display_name_en', 60,  False, '英文名'),
+        # Agent Skills 官方字段（agentskills.io）。超长不影响 WorkBuddy 上传，
+        # 但会让技能在官方 validator 下不合规 → 只告警不判 fail。
+        ('compatibility',   500,  False, '环境要求（官方上限 500）'),
     ]
     for key, cap, hard, label in LIMITS:
         if not has(key):
@@ -175,6 +180,7 @@ def check(raw, upload=False):
         print('  ~ 无 version，跳过版本一致性检查')
 
     print('  → 结论: %s' % ('✅ 可以打包上传' if ok else '❌ 有问题，先修再传'))
+    return ok
 
 
 def main(argv):
@@ -188,8 +194,14 @@ def main(argv):
     if not args:
         print(__doc__)
         return 1
+    failed = 0
     for a in args:
-        check(a, upload)
+        if check(a, upload) is False:
+            failed += 1
+    if failed:
+        print('\n❌ 共 %d 个技能未通过 —— 修好再打包上传。' % failed)
+        return 1
+    print('\n✅ 全部通过。')
     return 0
 
 

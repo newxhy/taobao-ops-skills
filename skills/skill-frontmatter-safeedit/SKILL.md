@@ -1,6 +1,6 @@
 ---
 name: skill-frontmatter-safeedit
-version: 1.3.0
+version: 1.4.0
 display_name: SKILL.md 安全编辑与上传前校验
 display_name_en: SKILL.md Safe Edit and Pre-upload Validation
 description: |
@@ -25,6 +25,8 @@ description: |
   校验器还查 name 合规、目录名一致、正文版本标记对账。
 description_zh: 编辑 SKILL.md frontmatter 的安全流程与发布前自检，覆盖传开放平台或公开仓库前的完整检查链。五个实测坑：CRLF 游离回车破坏 YAML；单行标量里的半角冒号空格被当成 mapping；必填字段缺失；描述字段超长（实测英文描述上限 1000 字符）；打包环节二次污染，源目录验过但 zip 内仍有裸 CR。并指出官方 quick_validate.py 只查 name/description 两条，报 valid 却仍被平台拒收。平台硬性要 6 个字段，缺任一即报解析失败，超长同样被拒。三条纪律：改内容必升 version、6 字段不能少不能超长、公开发布前必扫敏感信息（店铺名、品牌名、合作方名、内部称呼、密钥）。附三个零依赖脚本：校验器 check_frontmatter.py、打包器 pack_and_verify.py（打包前 LF 化 + 打包后解包复验）、敏感信息扫描器 scan_sensitive.py。
 description_en: Safe editing workflow and pre-upload validation for SKILL.md frontmatter, covering the checklist before public release. Covers five real pitfalls, stray carriage returns from CRLF breaking YAML, a half-width colon plus space in a one-line scalar parsed as a mapping, missing required fields, description fields exceeding the 1000-character cap for the English description, and packaging as a second contamination point where a clean source can still yield a zip with raw carriage returns. Also notes the official quick_validate.py checks only name and description while the platform hard-requires six fields. Three rules, bump version with any content change, keep the six fields complete and within limits, and always scan for sensitive info such as shop names, brand names and internal nicknames before publishing. Ships three scripts, a validator, a packer normalizing to LF with byte re-verification, and a sensitive-info scanner.
+license: MIT
+compatibility: Requires Python 3.9+. Pure standard library, no third-party dependencies and no network access.
 agent_created: true
 ---
 
@@ -50,6 +52,10 @@ python scripts/pack_and_verify.py <技能目录> [输出zip]
 
 三步都输出 `✅` 才去上传 / push。
 **第 2 步只在自己用、不发布时可以跳过；一旦要公开，绝不能跳。**
+
+**退出码**：校验器与扫描器都是 `0 = 通过 / 1 = 有问题` ——
+可直接当 **CI 门禁**用（本仓库的 GitHub Actions 就是这么挂的）。
+
 
 ## 1. 五个实测踩到的坑（前两个让 YAML 静默失效，后三个让平台静默拒收）
 
@@ -357,3 +363,46 @@ python scripts/scan_sensitive.py <技能目录>      # 以后每次发布前跑
 > 2026-09-20 实测 `sycm-ops-daily-report` v1.3：源目录 `--upload` 全绿，
 > **zip 内却藏着 1357 个裸 CR**。Windows 上每次写文件都可能把 CRLF 带回来。
 > **所以"验源目录"与"验包内字节"是两件事，必须都做**（`pack_and_verify.py` 一次做完）。
+
+
+---
+
+## 5. 官方标准字段 vs 平台扩展字段（2026-09-20 查证 [agentskills.io/specification](https://agentskills.io/specification)）
+
+`SKILL.md` 是**开放标准**（Anthropic 发起，70+ 工具采纳）。
+WorkBuddy 用的是「**开放标准 + 自家扩展**」，所以跨工具发布
+（GitHub / Claude Code / Codex CLI / Cursor）前必须分清哪些字段是谁的：
+
+| 字段 | 归属 | 换到别的工具 |
+|---|---|---|
+| `name` / `description` | ✅ 官方标准 | **照读**，召回能力不丢 |
+| `license` / `compatibility` / `metadata` / `allowed-tools` | ✅ 官方标准（可选） | 照读 |
+| `version` / `display_name` / `description_zh` / `description_en` | ⚠️ **WorkBuddy 扩展** | **静默忽略**（不报错，也不生效）|
+
+### 官方字段的硬约束（照抄规范，别凭记忆）
+
+| 字段 | 约束 |
+|---|---|
+| `name` | ≤64 字符；小写字母 / 数字 / 连字符；**不得连续连字符**；**必须与父目录名一致** |
+| `description` | ≤ **1024** 字符（WorkBuddy 实测更严：**1000** —— **取更严的**）|
+| `compatibility` | ≤ **500** 字符 |
+| `license` | 许可证名，或引用随包附带的许可证文件名（本仓库统一 `MIT`）|
+
+### 版本号放哪：一个必须做的取舍
+
+官方建议把版本放 `metadata.version`（`metadata` 是 string→string 映射），
+WorkBuddy 则要**顶层 `version`**。两者冲突。
+
+> ⛔ **本项目的取舍：只用顶层 `version`，不加 `metadata.version`。**
+>
+> **理由**：平台对描述字段的要求是「单行 plain scalar」——这说明它的解析器
+> **可能是逐行 key 提取，而不是完整 YAML 解析**。若如此，嵌套的 `  version:` 缩进行
+> 会被误当顶层字段，与 `version` 撞车 → **直接「解析失败」**。
+> 而收益极小（各工具实际只读 `name` / `description` 做召回）。
+> **不为"正宗"去冒上传被拒的险** —— 已经被拒两次了，教训够贵。
+
+### 已采纳的官方字段
+
+三个技能均已加 `license: MIT` 与 `compatibility`（扁平单行 scalar，零嵌套）。
+校验器 `check_frontmatter.py` 会对 `compatibility` 做 ≤500 长度告警
+（**不影响 WorkBuddy 上传，故只告警不判 fail**）。

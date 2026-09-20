@@ -1,0 +1,65 @@
+name: verify
+
+# 每次改动自动跑一遍「发布前自检」，把不报错但会翻车的问题挡在合并之前：
+#   ① frontmatter 字段缺失 / 超长 / 版本号没升
+#   ② 敏感信息（店铺名、邮箱、手机号、密钥）混入公开仓库
+#   ③ CRLF 行尾（会让 .sh 在 Linux 上跑不起来）
+#   ④ 打包链路本身是否还能跑通
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: 列出待检技能
+        run: |
+          set -euo pipefail
+          DIRS=$(find skills -mindepth 1 -maxdepth 1 -type d | sort)
+          echo "发现技能："
+          echo "$DIRS"
+
+      # 退出码 0 = 全过 / 1 = 有问题（校验器已支持 CI 门禁）
+      - name: ① 校验 frontmatter（6 字段 + 长度 + 版本一致性 + 裸 CR）
+        run: |
+          set -euo pipefail
+          DIRS=$(find skills -mindepth 1 -maxdepth 1 -type d | sort)
+          python skills/skill-frontmatter-safeedit/scripts/check_frontmatter.py --upload $DIRS
+
+      # CI 环境没有本地词表（词表含真实店名，不能提交），走通用模式：
+      # 邮箱 / 手机号 / 密钥 / 绝对路径 / 长数字 ID
+      - name: ② 敏感信息扫描（通用模式）
+        run: |
+          set -euo pipefail
+          DIRS=$(find skills -mindepth 1 -maxdepth 1 -type d | sort)
+          python skills/skill-frontmatter-safeedit/scripts/scan_sensitive.py $DIRS
+
+      - name: ③ 行尾符必须全 LF
+        run: |
+          set -euo pipefail
+          # -I 跳过二进制；-r 递归；命中即失败
+          if grep -rlI $'\r' --exclude-dir=.git .; then
+            echo "::error::以上文件含 CR（CRLF 行尾）。GitHub 与 Linux 上必须用 LF。"
+            exit 1
+          fi
+          echo "全部 LF ✅"
+
+      - name: ④ 打包链路自检（含包内字节复验）
+        run: |
+          set -euo pipefail
+          for d in $(find skills -mindepth 1 -maxdepth 1 -type d | sort); do
+            python skills/skill-frontmatter-safeedit/scripts/pack_and_verify.py "$d" "/tmp/$(basename "$d").zip"
+          done

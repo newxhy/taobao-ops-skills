@@ -1,6 +1,6 @@
 ---
 name: sycm-ops-daily-report
-version: 1.3.0
+version: 1.4.0
 display_name: 生意参谋运营日报
 display_name_en: Sycm Store Operations Daily Report
 description: |
@@ -21,6 +21,8 @@ description: |
   取数细节复用 sycm-backend-data-mining；bsk 跑不通时先修 bsk-browser-sandbox-setup。
 description_zh: 从淘宝/天猫「生意参谋」后台实抓数据，生成一份带环比对比与变化归因的店铺运营日报（HTML）。以「店铺整体 / 渠道 / 推广计划」为分析单位，覆盖昨日核心指标、上周vs上一周期、逐日趋势与拐点、活动节奏与同期对比、流量结构、人群画像、区域与时段、商品Top10、新品UV价值、推广效率、服务健康、异常告警三级分级、变化归因与下阶段预判共15个板块。数据全部实抓，抓不到即标注「未取到」，绝不用估算值填空。注意本技能为店铺维度，单品只到排行榜做结构判断，不做单品纵深诊断。v1.3 起把「发现变化 → 引导找到原因」提为总纲：每条变化都配一条问句形态的引导（如「上周是否调整过价格/优惠券？」），并输出归因闸结果、候选因素清单与需人工确认清单，绝不写未经验证的「原因」；另含优惠券后台查证（识别漏续期空窗）与万相台归因成熟度口径修正。
 description_en: Pull data directly from the Taobao or Tmall Sycm backend and generate a store-level operations daily report as an HTML long report, with period-over-period comparison and change attribution. Analysis units are the store as a whole, its channels and its ad plans. Fifteen sections cover yesterday core metrics, week-over-week, daily trend turning points, campaign rhythm, traffic structure, audience profile, region and hour, top 10 items, new-item UV value, ad efficiency, service health, tiered alerts, change attribution and next-period forecast. Store-level only, items stop at ranking without per-item deep dive. All figures are scraped live, never estimated, and missing data is marked as unavailable. Core principle, every change must become a concrete question for the operator, never an unverified conclusion; the report ships an attribution gate order, a candidate-factor library, a shape-to-guidance table and a human-confirmation checklist.
+license: MIT
+compatibility: Requires Python 3.9+, bash and browser automation; data is scraped from a logged-in Sycm merchant backend.
 agent_created: true
 ---
 
@@ -1353,7 +1355,8 @@ ls -la "$HOME/WorkBuddy/<日期-时间戳>/运营日报/"
 
 | 版本 | 主要变化 |
 |---|---|
-| **1.3.0**（2026-09-20，**待发布** —— 等 1.2 审核通过后上传） | ① **总纲 ⓪：报表 = 发现变化 + 引导**（置顶，本版最重要的一条）② 总纲升级为**七条**（新增「运营人为失误」「AI 职责边界」两条硬约束 + 实战经验全录）③ 新增 **§2.12 优惠券后台**（"自身变更"的第一数据源）④ 新增 **§1 归因成熟度陷阱**（万相台周环比的分子缺失问题）⑤ 新增 **§4.8 转化异常因素库**（可积累）⑥ 新增 **§4.9 店铺级「形状 → 引导」对照表** ⑦ §4 新增「需人工确认清单」⑧ 修掉「归因写法」块重复粘贴 |
+| **1.4.0**（2026-09-20，**待发布** —— 等 1.2 审核通过后上传） | ① 补 **Agent Skills 官方字段**（`license` / `compatibility`），跨工具更规范 ② 发布到公开仓库 `github.com/newxhy/taobao-ops-skills`（含打包与敏感扫描工具链） |
+| 1.3.0（2026-09-20，未单独上传，已并入 1.4.0） | ① **总纲 ⓪：报表 = 发现变化 + 引导**（置顶，本版最重要的一条）② 总纲升级为**七条**（新增「运营人为失误」「AI 职责边界」两条硬约束 + 实战经验全录）③ 新增 **§2.12 优惠券后台**（"自身变更"的第一数据源）④ 新增 **§1 归因成熟度陷阱**（万相台周环比的分子缺失问题）⑤ 新增 **§4.8 转化异常因素库**（可积累）⑥ 新增 **§4.9 店铺级「形状 → 引导」对照表** ⑦ §4 新增「需人工确认清单」⑧ 修掉「归因写法」块重复粘贴 |
 | 1.2.0（2026-09，平台审核中） | 新增 §2.9 服务健康四块 / §2.10 活动分析页 / §2.11 新品分析页 + UV 价值 / §4.7 异常告警分级 |
 | 1.1.0 | 新增 §2.6 历史周翻页 / §2.7 万相台报表 / §2.8 区域时段 / §4.5 活动淡旺季节奏 / §4.6 下阶段预判；核心修正「7 天 vs 30 天」不是趋势对比 |
 | 1.0.0 | 首版：多周期口径 + 归因闸 + 15 段日报结构 |
