@@ -31,11 +31,14 @@
 
 | 技能 | 维度 | 版本 | 说明 |
 |---|---|---|---|
-| [`taobao-item-ops-report`](skills/taobao-item-ops-report) | **单品** | v1.1.0 | 单个商品的运营长报告：多周期对比 + 渠道结构 + 归因闸 + 需人工确认清单，15 个板块 |
-| [`sycm-ops-daily-report`](skills/sycm-ops-daily-report) | **店铺** | **v1.4.0** | 店铺运营日报：店铺/渠道/推广计划三层 + 环比对比 + 变化归因，15 个板块 |
-| [`skill-frontmatter-safeedit`](skills/skill-frontmatter-safeedit) | 工具 | **v1.4.0** | 给"写技能的人"用：SKILL.md 安全编辑 + 上传前校验 + 打包复验 + 发布前敏感扫描 |
+| [`taobao-item-ops-report`](skills/taobao-item-ops-report) | **单品** | **v1.1.1** | 单个商品的运营长报告：多周期对比 + 渠道结构 + 归因闸 + 需人工确认清单，15 个板块 |
+| [`sycm-ops-daily-report`](skills/sycm-ops-daily-report) | **店铺** | **v1.8.2** | 店铺运营日报：店铺/渠道/推广计划三层 + 环比对比 + 变化归因，15 个板块 |
+| [`sycm-backend-data-mining`](skills/sycm-backend-data-mining) | 取数基础 | **v1.0.0** | 生意参谋后台路由表 + bsk 会话复用 + 结构化取数的定位纪律（日报技能的取数底座）|
+| [`skill-frontmatter-safeedit`](skills/skill-frontmatter-safeedit) | 工具 | **v1.4.2** | 给"写技能的人"用：SKILL.md 安全编辑 + 上传前校验 + 打包复验 + 发布前敏感扫描 |
 
-> 前两个是**业务技能**（一个看品、一个看店，互补不重叠）；第三个是**造技能的工具技能**。
+> 前两个是**业务技能**（一个看品、一个看店，互补不重叠）；
+> `sycm-backend-data-mining` 是它们的**取数底座**（别猜 URL、别用脆弱定位，路由与会话复用的细则都在它里面）；
+> 最后一个是**造技能的工具技能**。
 
 ---
 
@@ -97,6 +100,29 @@ cp -r skills/<技能名> ~/.cursor/skills/
 > 以上都遵循 [Agent Skills](https://agentskills.io) 开放标准（`SKILL.md` + YAML frontmatter），
 > 已被 70+ 工具采纳。Cursor 还会向后兼容 `.claude/skills` 与 `.codex/skills`。
 
+### Codex：装完还要做一件事
+
+Codex 与 WorkBuddy 共用同一个 `bsk` CLI 和同一份浏览器登录态，抓数链路是通的，
+但 **daemon 必须由 Codex 之外的常驻任务启动**（Codex 沙箱会回收子进程）：
+
+```powershell
+# 在普通 PowerShell 窗口里执行，保持窗口开着
+$env:BSK_HOME = "$env:USERPROFILE\.bsk"
+$env:BSK_AUTO_START = "0"
+& "$env:USERPROFILE\.local\bin\bsk.exe" daemon start --foreground --daemon-idle 8h
+```
+
+回到 Codex 先自检，返回 `0` 再开工：
+
+```powershell
+& "$HOME\.codex\skills\sycm-ops-daily-report\scripts\bsk_check.ps1"
+```
+
+抓数用 `scripts\bsk_grab.ps1`（别手搓 bash —— Codex 的 PowerShell 里没有 bash，
+而 WorkBuddy 的 `PortableGit\...\bin\bash.exe` 是 47KB 的 shim，真 bash 在 `usr\bin`）。
+包装脚本会自动定位真 bash、补 `USERPROFILE`、设 `BSK_HOME` / `BSK_AUTO_START`。
+两个技能都带同一套脚本，各自独立可用。
+
 ---
 
 ## 依赖
@@ -107,8 +133,11 @@ cp -r skills/<技能名> ~/.cursor/skills/
 | 浏览器自动化能力 | 页面抓取 | WorkBuddy 内置；其他工具可用 Playwright MCP / 自建 |
 | Python 3.9+ | 报表渲染与自校验脚本 | 仅用标准库，无第三方依赖 |
 
-⚠️ 抓数脚本与具体工具的浏览器能力绑定（本仓库以 WorkBuddy 为参考实现）。
-换到别的 Agent 工具时，**方法论、判据、报表结构、Python 渲染脚本都可直接复用**，
+⚠️ 抓数这一段依赖目标工具的浏览器自动化能力。**WorkBuddy 与 Codex 都已适配**：
+两个技能各自带 `scripts/codex_env.sh`（运行期探测真 bash / python / bsk / `BSK_HOME`）
+与 PowerShell 包装 `bsk_grab.ps1` / `bsk_check.ps1`，所以同一份技能在两端都能直接跑。
+
+换到其它 Agent 工具时，**方法论、判据、报表结构、Python 渲染脚本都可直接复用**，
 只有"抓数"那一段需要按目标工具重接。
 
 ---
@@ -132,8 +161,10 @@ taobao-ops-skills/
     ├── sycm-ops-daily-report/
     │   ├── SKILL.md
     │   ├── USAGE.md
-    │   ├── scripts/bsk_grab.sh            # 抓数脚本（工具相关）
+    │   ├── scripts/                       # 抓数器 + 环境解析（bash 与 PowerShell 各一套）
     │   └── templates/report_template.html
+    ├── sycm-backend-data-mining/
+    │   └── SKILL.md                       # 后台路由表 + bsk 会话复用 + 取数定位纪律
     └── skill-frontmatter-safeedit/
         ├── SKILL.md
         └── scripts/                       # 校验器 / 打包器 / 敏感扫描器

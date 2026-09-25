@@ -1,6 +1,6 @@
 ---
 name: skill-frontmatter-safeedit
-version: 1.4.0
+version: 1.4.2
 display_name: SKILL.md 安全编辑与上传前校验
 display_name_en: SKILL.md Safe Edit and Pre-upload Validation
 description: |
@@ -347,6 +347,10 @@ python scripts/scan_sensitive.py <技能目录>      # 以后每次发布前跑
 | `Skill is valid!` 但平台上不去 | **官方校验器只查 `name`/`description` 两条** | 见坑 ③，必须跑本脚本 `--upload` |
 | 目录名与 `name` 不一致 | 改名时漏改目录 | `mv` 目录，并重打包 |
 | 正文标了更高版本、frontmatter 未升 | 改了内容忘升 `version` | 若是**本技能自己的**版本标记 → 升 `version`；若是**引用外部规范**的版本号 → 忽略（或放进反引号让校验器豁免） |
+| **改了好几处，文件里只生效一部分**（且工具回执全是"成功"）| **一次消息里对同一文件并行发多个 Edit，互相覆盖并静默丢改动**。**实测两次**：2026-09-22（4 处只落地 3 处）；**2026-09-23（3 处只落地 2 处，导致自检器测试出现「提示词写着 whitening 却判 ✅ 通过」的假绿——差点据此下错结论）** | **改用 `python scripts/safe_multi_edit.py <文件> <edits.json>`**：先对全部替换逐个断言命中次数，**任一处不达标就整批不写盘**，写盘后回读校验（新串在、旧串消失）。**不要并行 Edit 同一文件，也不要只信工具回执** |
+| 替换后行为没变，但代码看着是新的 | 上面那条的**衍生症状**：部分改动落地 → 新旧逻辑混在一个文件里，比全失败更难查 | 修完**必须回读文件确认**（`grep` 关键词计数），或直接用 `safe_multi_edit.py` 的回读校验 |
+| `safe_multi_edit.py` 报「**旧串仍在**」但改动其实生效了 | **追加型替换**（new 以 old 开头，如"在段末补一段"）触发校验**假阳性**——替换后旧串当然还在 | **2026-09-23 已修**（仅当 `old not in new` 时才查旧串）。旧版脚本遇到这种情况会 `exit 1`，**别据此回滚**；先 `grep` 确认实际内容 |
+| 自检/校验脚本报失败，但人看是对的 | **判据本身有缺陷**（不只是被检对象的问题） | 2026-09-23 一天内撞到三次：① 自检器把 `at 0.00 seconds` 固定句式当数字泄漏；② 品类检查把硬违规和边界词放同一档，出现"写着 whitening 却判 ✅ 通过"；③ 本次的旧串假阳性。**凡判据报错，先验判据** |
 
 > ⭐ **最重要的一条**：`package_skill.py` 报 `Skill is valid!` **不代表能上传成功**
 > —— 2026-09-20 实测两件事同时发生：打包器报 valid，`yaml.safe_load` 失败；
@@ -379,6 +383,39 @@ WorkBuddy 用的是「**开放标准 + 自家扩展**」，所以跨工具发布
 | `license` / `compatibility` / `metadata` / `allowed-tools` | ✅ 官方标准（可选） | 照读 |
 | `version` / `display_name` / `description_zh` / `description_en` | ⚠️ **WorkBuddy 扩展** | **静默忽略**（不报错，也不生效）|
 
+### Codex 端实测（2026-09-25，实测环境：Codex 桌面版 26.917 + 本机 skills 目录）
+
+把本仓库三个技能原样放进 `~/.codex/skills/` 后，用 **`codex debug prompt-input`**
+（把「模型实际看到的内容」原样吐出来，**不调模型、不花钱**）逐条核对，结论：
+
+| 观察项 | 结果 |
+|---|---|
+| 技能是否被识别 | ✅ 三个全部出现在模型可见的技能清单里 |
+| 多行块标量 `description: \|` | ✅ 解析正确，整段落进清单（含中文与换行）|
+| WorkBuddy 扩展字段（`version` / `display_name` / `description_zh` / `description_en` / `platform` / `agent_created`）| ✅ **静默忽略**，不报错、不影响加载（与上表一致）|
+| `description` 长度 | ✅ Codex 端**未见**长度拒收或截断（本仓库最长的主描述超过 1000 字符仍正常）|
+| 正文里的平台专属工具名 | ⚠️ 需要处理：`present_files` / `Read` / `run_in_background` 在 Codex 端没有同名工具，正文里要给出等价说法 |
+
+**两条可复用的结论**：
+
+1. **同一份 `SKILL.md` 可以同时发 WorkBuddy 与 Codex，不需要双份 frontmatter。**
+   要改的只是正文里的平台专属**工具名**与**路径约定**，frontmatter 一个字都不用动。
+2. **验证「技能有没有被工具认出来」，别靠肉眼猜**：WorkBuddy 看技能列表，
+   Codex 直接跑 `codex debug prompt-input` —— 它输出的是模型真实收到的提示，
+   **技能没进清单就是没生效**，比看日志可靠。
+
+> ⚠️ 但要注意：**技能被加载 ≠ 技能依赖的工具可用**。
+> 实测 Codex 端 `imagegen` 技能在清单里，但它依赖的内置 `image_gen` 工具在当前
+> 模型/供应商下并不存在；同理 `view_image` 会直接返回
+> `not allowed because you do not support image inputs`。
+> **发布前要按「技能依赖的工具在目标端存不存在」再核一遍**，这一步不在 frontmatter 里。
+
+**跨端自检方法**（与 frontmatter 无关，但同属"发布前必查"）：
+
+```bash
+CODEX_HOME=<一个临时目录> codex debug prompt-input "测试"   # 看技能清单里有没有你的技能
+```
+
 ### 官方字段的硬约束（照抄规范，别凭记忆）
 
 | 字段 | 约束 |
@@ -406,3 +443,65 @@ WorkBuddy 则要**顶层 `version`**。两者冲突。
 三个技能均已加 `license: MIT` 与 `compatibility`（扁平单行 scalar，零嵌套）。
 校验器 `check_frontmatter.py` 会对 `compatibility` 做 ≤500 长度告警
 （**不影响 WorkBuddy 上传，故只告警不判 fail**）。
+
+## 6. 从外部来源安装技能（2026-09-23 实战：三个 H3 技能）
+
+前面五节管的是「**改**已有的技能」和「**传**技能」。这一节管前面那一步：**把外部来的技能装进技能库**。
+
+### 6.1 先分类：这个技能能不能改？
+
+| 来源类型 | 判别特征 | 能不能改 | 处置 |
+|---|---|---|---|
+| 第三方整合包 | 有 README、作者自述、版本号 | ✅ 可**追加**注释（不改原文） | 原文保留 + 顶部加本机说明 |
+| **官方快照** | 目录里有 `SOURCE.md` / 哈希清单 / 「Do not edit ... in place」 | ❌ **一个字节都不能动** | 保真复制 + **旁挂** `WORKBUDDY-NOTES.md` |
+| 技能市场 / 公开仓库 | 从市场或 GitHub 装 | 通常原样 | 原样复制 |
+
+> 判别只看一条：**目录里有没有哈希校验声明。** 有 → 当只读快照处理，任何改动都会让校验永久失效。
+
+### 6.2 保真安装法（四步，一步都不能省）
+
+1. **用 `shutil.copytree` 复制**，不要手工拖拽（拖拽会漏隐藏文件）
+2. **立刻对哈希**：从 `SOURCE.md` 里解析期望值，逐个 `sha256` 对照
+3. **旁挂 `WORKBUDDY-NOTES.md`** 写本机信息（来源、上游 commit、配套关系、校验命令）——**不要就地改快照文件**
+4. **装完再核一次**哈希，确认没被后续操作污染
+
+```python
+import hashlib, os, re
+def sha256(p):
+    h = hashlib.sha256()
+    with open(p, 'rb') as f:
+        for c in iter(lambda: f.read(65536), b''): h.update(c)
+    return h.hexdigest()
+# SOURCE.md 里的形式：- `references/x.txt`: `<64位hex>`
+want = dict(re.findall(r"`([^`]+)`:\s*`([0-9a-f]{64})`", open(src, encoding="utf-8").read()))
+for rel, exp in want.items():
+    print(("OK  " if sha256(os.path.join(dst, rel)) == exp else "BAD "), rel)
+```
+
+### 6.3 可改型技能的加法（不破坏可追溯性）
+
+- **正文逐字不动**，只在 frontmatter 之后**追加**一段带日期的说明
+- 追加内容写四件事：**来源路径**、**触发词**、**上游哪些字样在本机无效**（例如 frontmatter 写着 `Use when Codex needs to...`——保留原文但指出不影响本机触发）、**下游配套技能**
+- 明确标注改了哪里：`（正文与上游逐字一致，未改动）`
+
+### 6.4 安装后验证（三件，缺一件都可能白装）
+
+| # | 验什么 | 怎么验 |
+|---|---|---|
+| 1 | **结构完整性** | 遍历列全部文件 + 体积，与源目录对账 |
+| 2 | **frontmatter 合规** | 跑本目录 `scripts/check_frontmatter.py` |
+| 3 | **系统是否真的入册** | 跑 `workbuddy-skill-manager` 体检，`total_skills` 应 +N，且新技能名出现在 `installed` 列表 |
+
+> **Codex 端对应做法**：`codex debug prompt-input "测试"` —— 它输出模型真实收到的提示，
+> 在里面搜技能名即可；**技能没进清单就是没生效**（比看日志可靠）。详见 §5 的「Codex 端实测」。
+
+> ⚠️ **坑（本机踩过）**：体检报告输出目录里若已存在 `_data.json`，那是**上一次手工导出的残留**，
+> 脚本重跑**不会更新它** —— 直接读它会拿到旧数据，得出「整理没生效」的错误结论。
+> **必须从新生成的 HTML 里重新提取内嵌 `DATA` 对象**，或对比 `invocable_count` / `active_7d` 这类会变的字段。
+
+### 6.5 一个反直觉点：`assets/` 目录名不必改
+
+WorkBuddy 官方推荐的子目录是 `references/` / `scripts/` / `templates/`，**列表里没有 `assets/`**。
+但**本地技能完全不受影响** —— 技能加载只要求 `SKILL.md` 存在，其余文件由 Agent 按 SKILL.md 里的**相对路径**用 Read 工具读取，目录叫什么名字都能读到。
+
+⇒ **第三方包里的 `assets/` 不要为了"规范"而改名**（改了会破坏与上游的一致性，还可能漏改 SKILL.md 里的引用路径）。**只有打算上架时**才需要对齐官方子目录规范。
